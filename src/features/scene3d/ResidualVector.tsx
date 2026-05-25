@@ -1,6 +1,8 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import type { SatelliteData } from '../gps-calculation/types';
+import { getAnimatedSatellitePosition, isSatelliteObservable } from './orbitalMotion';
 
 const SCALE = 1 / 1000;
 
@@ -24,6 +26,7 @@ export function SignalLine({ from, to, color = '#ffffff', opacity = 0.4 }: Signa
 interface AnimatedSignalLineProps extends SignalLineProps {
   phase?: number;
   speed?: number;
+  satellite?: SatelliteData;
 }
 
 export function AnimatedSignalLine({
@@ -33,9 +36,11 @@ export function AnimatedSignalLine({
   opacity = 0.4,
   phase = 0,
   speed = 0.45,
+  satellite,
 }: AnimatedSignalLineProps) {
   const pulseRef = useRef<THREE.Mesh>(null);
   const tailRef = useRef<THREE.Line>(null);
+  const baseLineRef = useRef<THREE.Line>(null);
 
   const { start, end, geometry, material, tailMaterial } = useMemo(() => {
     const start = new THREE.Vector3(from[0] * SCALE, from[1] * SCALE, from[2] * SCALE);
@@ -59,17 +64,32 @@ export function AnimatedSignalLine({
   }, [color, from, opacity, to]);
 
   useFrame((state) => {
+    const dynamicStart = satellite
+      ? new THREE.Vector3(...getAnimatedSatellitePosition(satellite, state.clock.elapsedTime)).multiplyScalar(SCALE)
+      : start;
+    const dynamicStartKm = satellite
+      ? getAnimatedSatellitePosition(satellite, state.clock.elapsedTime)
+      : ([from[0], from[1], from[2]] as [number, number, number]);
+    const observable = isSatelliteObservable(dynamicStartKm, to);
     const t = (state.clock.elapsedTime * speed + phase) % 1;
-    const pulsePos = new THREE.Vector3().lerpVectors(start, end, t);
-    const tailStart = new THREE.Vector3().lerpVectors(start, end, Math.max(0, t - 0.12));
-    const tailEnd = new THREE.Vector3().lerpVectors(start, end, t);
+    const pulsePos = new THREE.Vector3().lerpVectors(dynamicStart, end, t);
+    const tailStart = new THREE.Vector3().lerpVectors(dynamicStart, end, Math.max(0, t - 0.12));
+    const tailEnd = new THREE.Vector3().lerpVectors(dynamicStart, end, t);
+
+    if (baseLineRef.current) {
+      baseLineRef.current.visible = observable;
+      baseLineRef.current.geometry.dispose();
+      baseLineRef.current.geometry = new THREE.BufferGeometry().setFromPoints([dynamicStart, end]);
+    }
 
     if (pulseRef.current) {
+      pulseRef.current.visible = observable;
       pulseRef.current.position.copy(pulsePos);
       const scale = 0.75 + Math.sin(state.clock.elapsedTime * 8 + phase) * 0.15;
       pulseRef.current.scale.setScalar(scale);
     }
     if (tailRef.current) {
+      tailRef.current.visible = observable;
       tailRef.current.geometry.dispose();
       tailRef.current.geometry = new THREE.BufferGeometry().setFromPoints([tailStart, tailEnd]);
     }
@@ -77,7 +97,7 @@ export function AnimatedSignalLine({
 
   return (
     <>
-      <primitive object={new THREE.Line(geometry, material)} />
+      <primitive ref={baseLineRef} object={new THREE.Line(geometry, material)} />
       <primitive ref={tailRef} object={new THREE.Line(new THREE.BufferGeometry(), tailMaterial)} />
       <mesh ref={pulseRef}>
         <sphereGeometry args={[0.08, 16, 16]} />

@@ -29,6 +29,29 @@ body {
 .app-logo { font-size: 20px; }
 .app-header h1 { font-size: 16px; font-weight: 700; color: #e2e8f0; }
 .app-subtitle { font-size: 11px; color: #64748b; margin-left: auto; }
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+}
+.mode-switch button {
+  min-width: 46px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  font-size: 11px;
+  cursor: pointer;
+}
+.mode-switch button.active {
+  background: #1d4ed8;
+  color: #eff6ff;
+}
 
 .app-body {
   display: grid;
@@ -36,6 +59,9 @@ body {
   flex: 1;
   overflow: hidden;
   min-height: 0;
+}
+.simulation-mode .app-body {
+  grid-template-columns: 1fr;
 }
 
 /* ─── Sidebar ─── */
@@ -49,6 +75,34 @@ body {
 .app-scene {
   position: relative;
   overflow: hidden;
+}
+.simulation-dashboard {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: min(720px, calc(100% - 32px));
+}
+.simulation-stat {
+  min-width: 110px;
+  padding: 8px 10px;
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(10px);
+}
+.simulation-stat span {
+  display: block;
+  margin-bottom: 2px;
+  color: #64748b;
+  font-size: 10px;
+}
+.simulation-stat strong {
+  color: #e2e8f0;
+  font-size: 15px;
 }
 
 /* ─── Right Panel ─── */

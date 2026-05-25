@@ -1,33 +1,60 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import type { SatelliteData } from '../gps-calculation/types';
+import { getAnimatedSatellitePosition, isSatelliteObservable } from './orbitalMotion';
 
 const SCALE = 1 / 1000;
 
 interface SatelliteProps {
   satellite: SatelliteData;
+  observerPosition: [number, number, number];
   showLabel?: boolean;
 }
 
-export function Satellite({ satellite, showLabel = true }: SatelliteProps) {
-  const { position, color, label } = satellite;
+export function Satellite({ satellite, observerPosition, showLabel = true }: SatelliteProps) {
+  const { color, label } = satellite;
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
   const haloRef = useRef<THREE.Mesh>(null);
-  const pos: [number, number, number] = [
-    position[0] * SCALE,
-    position[1] * SCALE,
-    position[2] * SCALE,
-  ];
+  const bodyMaterialRef = useRef<THREE.MeshPhongMaterial>(null);
+  const panelMaterialRef = useRef<THREE.MeshPhongMaterial>(null);
+  const haloMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const lightRef = useRef<THREE.PointLight>(null);
+  const observableRef = useRef(true);
+  const [isObservable, setIsObservable] = useState(true);
 
   useFrame((state, delta) => {
     if (meshRef.current) {
       meshRef.current.rotation.y += delta * 0.3;
     }
     if (groupRef.current) {
-      groupRef.current.position.y = pos[1] + Math.sin(state.clock.elapsedTime * 0.8 + satellite.id) * 0.08;
+      const position = getAnimatedSatellitePosition(satellite, state.clock.elapsedTime);
+      const observable = isSatelliteObservable(position, observerPosition);
+      groupRef.current.position.set(
+        position[0] * SCALE,
+        position[1] * SCALE + Math.sin(state.clock.elapsedTime * 0.8 + satellite.id) * 0.08,
+        position[2] * SCALE
+      );
+
+      if (observableRef.current !== observable) {
+        observableRef.current = observable;
+        setIsObservable(observable);
+      }
+      if (bodyMaterialRef.current) {
+        bodyMaterialRef.current.opacity = observable ? 1 : 0.28;
+        bodyMaterialRef.current.emissiveIntensity = observable ? 0.3 : 0.04;
+      }
+      if (panelMaterialRef.current) {
+        panelMaterialRef.current.opacity = observable ? 1 : 0.22;
+      }
+      if (haloMaterialRef.current) {
+        haloMaterialRef.current.opacity = observable ? 0.12 : 0.02;
+      }
+      if (lightRef.current) {
+        lightRef.current.intensity = observable ? 0.75 : 0.08;
+      }
     }
     if (haloRef.current) {
       const pulse = 1 + Math.sin(state.clock.elapsedTime * 2.4 + satellite.id) * 0.12;
@@ -36,11 +63,12 @@ export function Satellite({ satellite, showLabel = true }: SatelliteProps) {
   });
 
   return (
-    <group ref={groupRef} position={pos}>
-      <pointLight color={color} intensity={0.75} distance={4} />
+    <group ref={groupRef}>
+      <pointLight ref={lightRef} color={color} intensity={0.75} distance={4} />
       <mesh ref={haloRef}>
         <sphereGeometry args={[0.17, 24, 24]} />
         <meshBasicMaterial
+          ref={haloMaterialRef}
           color={color}
           transparent
           opacity={0.12}
@@ -51,12 +79,24 @@ export function Satellite({ satellite, showLabel = true }: SatelliteProps) {
       {/* Main body */}
       <mesh ref={meshRef}>
         <boxGeometry args={[0.06, 0.06, 0.15]} />
-        <meshPhongMaterial color={color} emissive={color} emissiveIntensity={0.3} />
+        <meshPhongMaterial
+          ref={bodyMaterialRef}
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.3}
+          transparent
+        />
       </mesh>
       {/* Solar panels */}
       <mesh rotation={[0, 0, Math.PI / 2]}>
         <boxGeometry args={[0.4, 0.03, 0.08]} />
-        <meshPhongMaterial color="#334155" emissive="#1e3a5f" emissiveIntensity={0.2} />
+        <meshPhongMaterial
+          ref={panelMaterialRef}
+          color="#334155"
+          emissive="#1e3a5f"
+          emissiveIntensity={0.2}
+          transparent
+        />
       </mesh>
       {/* Label */}
       {showLabel && (
@@ -67,6 +107,7 @@ export function Satellite({ satellite, showLabel = true }: SatelliteProps) {
               fontSize: '11px',
               fontWeight: 'bold',
               textShadow: '0 0 4px rgba(0,0,0,0.8)',
+              opacity: isObservable ? 1 : 0.35,
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
               transform: 'translateY(-20px)',
@@ -86,6 +127,7 @@ interface OrbitPathProps {
   opacity?: number;
   tilt?: [number, number, number];
   spinSpeed?: number;
+  phase?: number;
 }
 
 export function OrbitPath({
@@ -94,6 +136,7 @@ export function OrbitPath({
   opacity = 0.3,
   tilt = [0, 0, 0],
   spinSpeed = 0.015,
+  phase = 0,
 }: OrbitPathProps) {
   const lineRef = useRef<THREE.Line>(null);
   const points: THREE.Vector3[] = [];
@@ -114,6 +157,7 @@ export function OrbitPath({
   useFrame((_, delta) => {
     if (lineRef.current) {
       lineRef.current.rotation.z += delta * spinSpeed;
+      lineRef.current.rotation.y += delta * spinSpeed * 0.4;
     }
   });
 
@@ -121,7 +165,7 @@ export function OrbitPath({
     <primitive
       ref={lineRef}
       object={new THREE.Line(geometry, material)}
-      rotation={tilt}
+      rotation={[tilt[0], tilt[1] + phase, tilt[2]]}
     />
   );
 }
