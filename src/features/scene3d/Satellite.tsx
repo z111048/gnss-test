@@ -14,20 +14,40 @@ interface SatelliteProps {
 export function Satellite({ satellite, showLabel = true }: SatelliteProps) {
   const { position, color, label } = satellite;
   const meshRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
   const pos: [number, number, number] = [
     position[0] * SCALE,
     position[1] * SCALE,
     position[2] * SCALE,
   ];
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (meshRef.current) {
       meshRef.current.rotation.y += delta * 0.3;
+    }
+    if (groupRef.current) {
+      groupRef.current.position.y = pos[1] + Math.sin(state.clock.elapsedTime * 0.8 + satellite.id) * 0.08;
+    }
+    if (haloRef.current) {
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 2.4 + satellite.id) * 0.12;
+      haloRef.current.scale.setScalar(pulse);
     }
   });
 
   return (
-    <group position={pos}>
+    <group ref={groupRef} position={pos}>
+      <pointLight color={color} intensity={0.75} distance={4} />
+      <mesh ref={haloRef}>
+        <sphereGeometry args={[0.17, 24, 24]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.12}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
       {/* Main body */}
       <mesh ref={meshRef}>
         <boxGeometry args={[0.06, 0.06, 0.15]} />
@@ -64,9 +84,18 @@ interface OrbitPathProps {
   radius: number; // km
   color?: string;
   opacity?: number;
+  tilt?: [number, number, number];
+  spinSpeed?: number;
 }
 
-export function OrbitPath({ radius, color = '#334155', opacity = 0.3 }: OrbitPathProps) {
+export function OrbitPath({
+  radius,
+  color = '#334155',
+  opacity = 0.3,
+  tilt = [0, 0, 0],
+  spinSpeed = 0.015,
+}: OrbitPathProps) {
+  const lineRef = useRef<THREE.Line>(null);
   const points: THREE.Vector3[] = [];
   const segments = 128;
   for (let i = 0; i <= segments; i++) {
@@ -80,7 +109,19 @@ export function OrbitPath({ radius, color = '#334155', opacity = 0.3 }: OrbitPat
     );
   }
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({ color, opacity, transparent: true });
+
+  useFrame((_, delta) => {
+    if (lineRef.current) {
+      lineRef.current.rotation.z += delta * spinSpeed;
+    }
+  });
+
   return (
-    <primitive object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color, opacity, transparent: true }))} />
+    <primitive
+      ref={lineRef}
+      object={new THREE.Line(geometry, material)}
+      rotation={tilt}
+    />
   );
 }

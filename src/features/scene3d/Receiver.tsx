@@ -1,4 +1,7 @@
+import { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import * as THREE from 'three';
 
 const SCALE = 1 / 1000;
 
@@ -15,14 +18,33 @@ export function Receiver({
   label = '接收器',
   size = 0.05,
 }: ReceiverProps) {
+  const ringRef = useRef<THREE.Mesh>(null);
   const pos: [number, number, number] = [
     position[0] * SCALE,
     position[1] * SCALE,
     position[2] * SCALE,
   ];
 
+  useFrame((state) => {
+    if (ringRef.current) {
+      const pulse = 1 + Math.sin(state.clock.elapsedTime * 2.2) * 0.18;
+      ringRef.current.scale.setScalar(pulse);
+      ringRef.current.rotation.z += 0.01;
+    }
+  });
+
   return (
     <group position={pos}>
+      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[size * 2.5, size * 0.08, 8, 48]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.55}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
       <mesh>
         <sphereGeometry args={[size, 16, 16]} />
         <meshPhongMaterial color={color} emissive={color} emissiveIntensity={0.6} />

@@ -4,7 +4,7 @@ import { Earth } from './Earth';
 import { Satellite, OrbitPath } from './Satellite';
 import { Receiver } from './Receiver';
 import { SignalSphere } from './SignalSphere';
-import { SignalLine } from './ResidualVector';
+import { AnimatedSignalLine } from './ResidualVector';
 import { useGPSStore } from '../../store/gpsStore';
 import { generatePseudorange } from '../gps-calculation/pseudorange';
 import { GPS_ORBIT_RADIUS_KM } from '../../utils/units';
@@ -39,10 +39,11 @@ export function GPSScene() {
       camera={{ position: [0, 0, 60], fov: 45 }}
       style={{ background: '#020617' }}
     >
+      <fog attach="fog" args={['#020617', 55, 145]} />
       {/* Lighting */}
       <ambientLight intensity={0.4} />
       <directionalLight position={[50, 50, 50]} intensity={1.2} />
-      <pointLight position={[-50, -50, -50]} intensity={0.3} color="#4040ff" />
+      <pointLight position={[-50, -50, -50]} intensity={0.6} color="#4040ff" />
 
       {/* Stars background */}
       <Stars radius={200} depth={50} count={3000} factor={4} saturation={0} />
@@ -54,7 +55,13 @@ export function GPSScene() {
       {showOrbitPaths && (
         <>
           <OrbitPath radius={GPS_ORBIT_RADIUS_KM} color="#1e3a5f" opacity={0.4} />
-          <OrbitPath radius={GPS_ORBIT_RADIUS_KM} color="#1e3a5f" opacity={0.2} />
+          <OrbitPath
+            radius={GPS_ORBIT_RADIUS_KM}
+            color="#38bdf8"
+            opacity={0.22}
+            tilt={[Math.PI / 3, 0, Math.PI / 8]}
+            spinSpeed={-0.01}
+          />
         </>
       )}
 
@@ -66,12 +73,13 @@ export function GPSScene() {
       {/* Signal lines */}
       {showSignalLines &&
         visibleSats.map((sat) => (
-          <SignalLine
+          <AnimatedSignalLine
             key={sat.id}
             from={sat.position}
             to={trueReceiverPos}
             color={sat.color}
             opacity={0.35}
+            phase={sat.id * 0.17}
           />
         ))}
 
