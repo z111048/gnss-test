@@ -26,6 +26,20 @@ export interface IterationStep {
   z: number;
   B: number; // clock bias in meters
   residualNorm: number;
+  delta?: [number, number, number, number]; // meters: [dx, dy, dz, dB]
+  updatedState?: [number, number, number, number]; // km, km, km, meters
+  observations?: IterationObservation[];
+  hMatrix?: number[][];
+  normalMatrix?: number[][];
+  normalVector?: number[];
+}
+
+export interface IterationObservation {
+  satelliteLabel: string;
+  observedPseudorange: number;
+  predictedPseudorange: number;
+  residual: number;
+  geometricDistance: number;
 }
 
 export interface LessonScene {

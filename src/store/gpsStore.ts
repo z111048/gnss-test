@@ -111,6 +111,7 @@ export const useGPSStore = create<GPSStore>((set, get) => ({
     if (visible.length < 4) return;
 
     const satsWithPr = visible.map((s) => ({
+      label: s.label,
       position: s.position,
       pseudorange: generatePseudorange(
         s.position,

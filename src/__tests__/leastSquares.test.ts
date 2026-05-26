@@ -73,6 +73,21 @@ describe('solveLeastSquares', () => {
       expect(typeof step.residualNorm).toBe('number');
     }
   });
+
+  it('records detailed solve data for each iteration', () => {
+    const sats = makeSats(0, 0);
+    const steps = solveLeastSquares(sats, [0, 0, 0]);
+    const first = steps[0];
+
+    expect(first.delta?.length).toBe(4);
+    expect(first.updatedState?.length).toBe(4);
+    expect(first.observations?.length).toBe(SATELLITES.length);
+    expect(first.hMatrix?.length).toBe(SATELLITES.length);
+    expect(first.normalMatrix?.length).toBe(4);
+    expect(first.normalVector?.length).toBe(4);
+    expect(first.observations?.[0].observedPseudorange).toBeGreaterThan(0);
+    expect(typeof first.observations?.[0].residual).toBe('number');
+  });
 });
 
 describe('buildHMatrix', () => {

@@ -3,6 +3,7 @@ import type { IterationStep } from './types';
 interface SatPos {
   position: [number, number, number]; // ECEF km
   pseudorange: number; // meters
+  label?: string;
 }
 
 /**
@@ -29,8 +30,10 @@ export function solveLeastSquares(
     const n = satellites.length;
     const H: number[][] = [];
     const v: number[] = [];
+    const observations = [];
 
-    for (const sat of satellites) {
+    for (let i = 0; i < satellites.length; i++) {
+      const sat = satellites[i];
       const xim = sat.position[0] * 1000;
       const yim = sat.position[1] * 1000;
       const zim = sat.position[2] * 1000;
@@ -43,10 +46,21 @@ export function solveLeastSquares(
       v.push(residual);
       // H row: ∂(predicted_m)/∂[x_m, y_m, z_m, B_m]
       H.push([dx / distM, dy / distM, dz / distM, 1]);
+      observations.push({
+        satelliteLabel: sat.label ?? `SV-${i + 1}`,
+        observedPseudorange: sat.pseudorange,
+        predictedPseudorange: predicted,
+        residual,
+        geometricDistance: distM,
+      });
     }
 
     // Δ = (H^T H)^{-1} H^T v  — all in meters
-    const delta = leastSquaresSolve(H, v);
+    const { normalMatrix, normalVector } = buildNormalEquations(H, v);
+    const delta = gaussianElimination(
+      normalMatrix.map((row) => [...row]),
+      [...normalVector]
+    ) as [number, number, number, number];
     const residualNorm = Math.sqrt(v.reduce((s, r) => s + r * r, 0) / n);
 
     steps.push({
@@ -56,6 +70,17 @@ export function solveLeastSquares(
       z: zm / 1000,
       B,
       residualNorm,
+      delta,
+      updatedState: [
+        (xm + delta[0]) / 1000,
+        (ym + delta[1]) / 1000,
+        (zm + delta[2]) / 1000,
+        B + delta[3],
+      ],
+      observations,
+      hMatrix: H,
+      normalMatrix,
+      normalVector,
     });
 
     xm += delta[0];
@@ -72,6 +97,8 @@ export function solveLeastSquares(
         z: zm / 1000,
         B,
         residualNorm: 0,
+        delta: [0, 0, 0, 0],
+        updatedState: [xm / 1000, ym / 1000, zm / 1000, B],
       });
       break;
     }
@@ -83,22 +110,25 @@ export function solveLeastSquares(
 /**
  * Solve normal equations (H^T H) Δ = H^T v using Gaussian elimination.
  */
-function leastSquaresSolve(H: number[][], v: number[]): number[] {
+function buildNormalEquations(
+  H: number[][],
+  v: number[]
+): { normalMatrix: number[][]; normalVector: number[] } {
   const m = H.length;
   const n = H[0].length;
-  const A: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
-  const b: number[] = Array(n).fill(0);
+  const normalMatrix: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
+  const normalVector: number[] = Array(n).fill(0);
 
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < n; j++) {
-      b[j] += H[i][j] * v[i];
+      normalVector[j] += H[i][j] * v[i];
       for (let k = 0; k < n; k++) {
-        A[j][k] += H[i][j] * H[i][k];
+        normalMatrix[j][k] += H[i][j] * H[i][k];
       }
     }
   }
 
-  return gaussianElimination(A, b);
+  return { normalMatrix, normalVector };
 }
 
 function gaussianElimination(A: number[][], b: number[]): number[] {
@@ -150,4 +180,3 @@ export function buildHMatrix(
     return [dx / distKm, dy / distKm, dz / distKm, 1];
   });
 }
-

@@ -1,13 +1,13 @@
 import { useEffect } from 'react';
 import { LESSON_CONTENTS, LESSONS } from './lessonContent';
 import { useGPSStore } from '../../store/gpsStore';
+import type { IterationStep } from '../gps-calculation/types';
 import { FormulaBlock } from '../calculator-panel/FormulaBlock';
 import { ValueInspector } from '../calculator-panel/ValueInspector';
 import { IterationTable } from '../calculator-panel/IterationTable';
 import { MatrixTable } from '../calculator-panel/MatrixTable';
 import { timeDiffToPseudorange } from '../gps-calculation/pseudorange';
 import { ecefToGeodetic } from '../gps-calculation/ecef';
-import { buildHMatrix } from '../gps-calculation/leastSquares';
 import { C } from '../../utils/units';
 
 export function LessonPage() {
@@ -217,16 +217,7 @@ function CalculatorPanel({ mode }: CalculatorPanelProps) {
 
   if (mode === 'leastsquares') {
     const visibleSats = store.satellites.filter((s) => s.visible);
-    const hMatrix =
-      store.iterationSteps.length > 0
-        ? buildHMatrix(
-            visibleSats.map((s) => ({
-              position: s.position,
-              pseudorange: 0,
-            })),
-            store.trueReceiverPos
-          )
-        : [];
+    const currentStep = store.iterationSteps[store.currentIteration];
 
     return (
       <div className="calculator-panel">
@@ -268,14 +259,7 @@ function CalculatorPanel({ mode }: CalculatorPanelProps) {
               highlightRow={store.currentIteration}
               onSelectRow={store.setCurrentIteration}
             />
-            {hMatrix.length > 0 && (
-              <MatrixTable
-                matrix={hMatrix}
-                title="H 矩陣（設計矩陣）"
-                colLabels={['∂/∂x', '∂/∂y', '∂/∂z', '1']}
-                rowLabels={visibleSats.map((s) => s.label)}
-              />
-            )}
+            {currentStep && <LeastSquaresDetail step={currentStep} />}
           </>
         )}
       </div>
@@ -365,6 +349,118 @@ function CalculatorPanel({ mode }: CalculatorPanelProps) {
   }
 
   return null;
+}
+
+interface LeastSquaresDetailProps {
+  step: IterationStep;
+}
+
+function LeastSquaresDetail({ step }: LeastSquaresDetailProps) {
+  const delta = step.delta ?? [0, 0, 0, 0];
+  const updated = step.updatedState;
+
+  return (
+    <div className="solve-detail">
+      <div className="calc-section-label">本輪狀態與修正量</div>
+      <ValueInspector
+        items={[
+          { label: '目前 X', value: step.x.toFixed(3), unit: 'km' },
+          { label: '目前 Y', value: step.y.toFixed(3), unit: 'km' },
+          { label: '目前 Z', value: step.z.toFixed(3), unit: 'km' },
+          { label: '目前 B', value: step.B.toFixed(3), unit: 'm' },
+          { label: 'Δx', value: delta[0].toFixed(3), unit: 'm', color: '#22d3ee' },
+          { label: 'Δy', value: delta[1].toFixed(3), unit: 'm', color: '#22d3ee' },
+          { label: 'Δz', value: delta[2].toFixed(3), unit: 'm', color: '#22d3ee' },
+          { label: 'ΔB', value: delta[3].toFixed(3), unit: 'm', color: '#fbbf24' },
+          ...(updated
+            ? [
+                { label: '更新後 X', value: updated[0].toFixed(3), unit: 'km', color: '#4ade80' },
+                { label: '更新後 Y', value: updated[1].toFixed(3), unit: 'km', color: '#4ade80' },
+                { label: '更新後 Z', value: updated[2].toFixed(3), unit: 'km', color: '#4ade80' },
+                { label: '更新後 B', value: updated[3].toFixed(3), unit: 'm', color: '#4ade80' },
+              ]
+            : []),
+        ]}
+      />
+
+      {step.observations && (
+        <ObservationTable observations={step.observations} />
+      )}
+
+      {step.hMatrix && (
+        <MatrixTable
+          matrix={step.hMatrix}
+          title="H 矩陣（依目前估計點計算）"
+          colLabels={['∂ρ/∂x', '∂ρ/∂y', '∂ρ/∂z', '∂ρ/∂B']}
+          rowLabels={step.observations?.map((obs) => obs.satelliteLabel)}
+        />
+      )}
+
+      {step.normalMatrix && (
+        <MatrixTable
+          matrix={step.normalMatrix}
+          title="HᵀH（正規方程左側）"
+          colLabels={['x', 'y', 'z', 'B']}
+          rowLabels={['x', 'y', 'z', 'B']}
+        />
+      )}
+
+      {step.normalVector && (
+        <MatrixTable
+          matrix={step.normalVector.map((value) => [value])}
+          title="Hᵀv（正規方程右側）"
+          colLabels={['value']}
+          rowLabels={['x', 'y', 'z', 'B']}
+        />
+      )}
+    </div>
+  );
+}
+
+interface ObservationTableProps {
+  observations: {
+    satelliteLabel: string;
+    observedPseudorange: number;
+    predictedPseudorange: number;
+    residual: number;
+    geometricDistance: number;
+  }[];
+}
+
+function ObservationTable({ observations }: ObservationTableProps) {
+  return (
+    <div className="observation-table-wrapper">
+      <div className="matrix-title">逐顆衛星觀測、預測與殘差</div>
+      <table className="observation-table">
+        <thead>
+          <tr>
+            <th>衛星</th>
+            <th>幾何距離 (m)</th>
+            <th>預測偽距 (m)</th>
+            <th>觀測偽距 (m)</th>
+            <th>殘差 v (m)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {observations.map((obs) => (
+            <tr key={obs.satelliteLabel}>
+              <td>{obs.satelliteLabel}</td>
+              <td>{obs.geometricDistance.toFixed(2)}</td>
+              <td>{obs.predictedPseudorange.toFixed(2)}</td>
+              <td>{obs.observedPseudorange.toFixed(2)}</td>
+              <td
+                style={{
+                  color: Math.abs(obs.residual) < 10 ? '#4ade80' : '#fbbf24',
+                }}
+              >
+                {obs.residual.toFixed(2)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function markdownBold(text: string): string {
