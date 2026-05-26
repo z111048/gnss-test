@@ -1,6 +1,7 @@
 /* ─── Reset & Base ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+html, body, #root { min-height: 100%; width: 100%; }
+html, body { overflow: hidden; }
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: #020617;
@@ -52,6 +53,19 @@ body {
   background: #1d4ed8;
   color: #eff6ff;
 }
+.sidebar-toggle {
+  padding: 4px 8px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  background: #111827;
+  color: #cbd5e1;
+  font-size: 11px;
+  cursor: pointer;
+}
+.sidebar-toggle:hover {
+  background: #1e293b;
+  border-color: #475569;
+}
 
 .app-body {
   display: grid;
@@ -62,6 +76,9 @@ body {
 }
 .simulation-mode .app-body {
   grid-template-columns: 1fr;
+}
+.sidebar-collapsed .app-body {
+  grid-template-columns: 1fr 340px;
 }
 
 /* ─── Sidebar ─── */
@@ -373,6 +390,160 @@ body {
 }
 .matrix-table td.row-label { color: #64748b; text-align: left; }
 .matrix-table tr.highlight td { background: #1e3a5f; }
+
+@media (max-width: 900px) {
+  html,
+  body {
+    overflow: auto;
+  }
+
+  .app-layout {
+    min-height: 100vh;
+    height: auto;
+  }
+
+  .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-wrap: wrap;
+    align-content: center;
+    height: auto;
+    min-height: 56px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .app-header h1 {
+    flex: 1 1 calc(100% - 36px);
+    font-size: 15px;
+  }
+
+  .app-subtitle {
+    flex: 1 1 100%;
+    margin-left: 0;
+    line-height: 1.3;
+  }
+
+  .mode-switch,
+  .sidebar-toggle {
+    flex: 0 0 auto;
+  }
+
+  .app-body,
+  .sidebar-collapsed .app-body,
+  .simulation-mode .app-body {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    min-height: auto;
+  }
+
+  .app-sidebar {
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid #1e293b;
+    overflow-y: auto;
+  }
+
+  .lesson-stepper {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .lesson-stepper-title {
+    grid-column: 1 / -1;
+    padding: 2px 4px;
+  }
+
+  .lesson-step {
+    min-height: 58px;
+    padding: 8px;
+    border-left: 0;
+    border-radius: 6px;
+    background: #111827;
+  }
+
+  .lesson-step.active {
+    border-left: 0;
+    outline: 1px solid #3b82f6;
+  }
+
+  .app-scene {
+    height: min(52vh, 420px);
+    min-height: 300px;
+    flex: 0 0 auto;
+  }
+
+  .app-panel {
+    border-left: 0;
+    border-top: 1px solid #1e293b;
+    overflow: visible;
+  }
+
+  .lesson-page {
+    height: auto;
+    padding: 14px;
+  }
+
+  .lesson-description h2 {
+    font-size: 18px;
+  }
+
+  .lesson-body p {
+    font-size: 14px;
+    line-height: 1.75;
+  }
+
+  .calculator-panel {
+    border-radius: 6px;
+  }
+
+  .value-row {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .value-value {
+    text-align: right;
+    word-break: break-word;
+  }
+
+  .simulation-dashboard {
+    left: 8px;
+    top: 8px;
+    max-width: calc(100% - 16px);
+  }
+
+  .simulation-stat {
+    min-width: 92px;
+    padding: 6px 8px;
+  }
+}
+
+@media (max-width: 520px) {
+  .lesson-stepper {
+    grid-template-columns: 1fr;
+  }
+
+  .app-scene {
+    height: 42vh;
+    min-height: 260px;
+  }
+
+  .mode-switch button,
+  .sidebar-toggle {
+    min-height: 32px;
+  }
+
+  .iteration-table,
+  .observation-table,
+  .matrix-table table {
+    font-size: 9px;
+  }
+}
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }

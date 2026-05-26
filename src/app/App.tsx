@@ -6,10 +6,18 @@ import { SimulationDashboard } from '../features/simulation/SimulationDashboard'
 
 export function App() {
   const [mode, setMode] = useState<'lesson' | 'simulation'>('lesson');
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const isSimulation = mode === 'simulation';
+  const showSidebar = !isSimulation && sidebarVisible;
 
   return (
-    <div className={`app-layout ${isSimulation ? 'simulation-mode' : ''}`}>
+    <div
+      className={[
+        'app-layout',
+        isSimulation ? 'simulation-mode' : '',
+        !showSidebar && !isSimulation ? 'sidebar-collapsed' : '',
+      ].filter(Boolean).join(' ')}
+    >
       <header className="app-header">
         <span className="app-logo">🛰️</span>
         <h1>{isSimulation ? 'GNSS 軌道實況模擬' : 'GPS 定位原理互動教案'}</h1>
@@ -27,6 +35,16 @@ export function App() {
             模擬
           </button>
         </div>
+        {!isSimulation && (
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarVisible((visible) => !visible)}
+            aria-expanded={sidebarVisible}
+            aria-controls="lesson-sidebar"
+          >
+            {sidebarVisible ? '隱藏章節' : '顯示章節'}
+          </button>
+        )}
         <span className="app-subtitle">
           {isSimulation
             ? '多軌道、多衛星、地球遮蔽與可觀測性'
@@ -36,8 +54,8 @@ export function App() {
 
       <div className="app-body">
         {/* Left sidebar: chapter navigation */}
-        {!isSimulation && (
-          <aside className="app-sidebar">
+        {showSidebar && (
+          <aside id="lesson-sidebar" className="app-sidebar">
             <LessonStepper />
           </aside>
         )}
